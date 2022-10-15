@@ -1,0 +1,104 @@
+//consertar o mMap
+//property PositionMap
+unit uMain;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  Dialogs, StdCtrls, ExtCtrls, GifImage, uPacMan, ComCtrls, uMapGen;
+
+const
+  DIMX = 24;
+  DIMY = 21;
+  SIZE = 16;
+
+type
+  TMap = array[0..DIMY,0..DIMX+1] of Char;
+  TfrmMain = class(TForm)
+    Timer1: TTimer;
+    Status: TStatusBar;
+    procedure FormCreate(Sender: TObject);
+    procedure Timer1Timer(Sender: TObject);
+    procedure FormKeyDown(Sender: TObject; var Key: Word;
+      Shift: TShiftState);
+  private
+    mMap : TMap;
+    aux : integer;
+    procedure LoadMap;
+    { Private declarations }
+  public
+    Mapa : TMapGen;
+    property Map : TMap read mMap;
+    procedure EraseDot(Coord : TPoint);
+    { Public declarations }
+  end;
+
+var
+  frmMain : TfrmMain;
+  PM : TPacMan;
+
+implementation
+
+{$R *.dfm}
+procedure TfrmMain.FormCreate(Sender: TObject);
+begin
+  doubleBuffered := True;
+  frmMain.Color := clBlack;
+  frmMain.ClientHeight := (DIMY+2)*SIZE;
+  frmMain.ClientWidth := (DIMX+1)*SIZE;
+  frmMain.Left := 200;
+  frmMain.Top := 60;
+  Mapa := TMapGen.Create(frmMain,frmMain);
+  Mapa.VerticalDimension := DIMY;
+  Mapa.HorizontalDimension := DIMX;
+  Mapa.BlockSize := Size;
+  LoadMap;
+  Mapa.DrawMap;
+  PM := TPacMan.Create(frmMain,frmMain);
+  PM.Position := Mapa.PacManPos;
+  PM.Speed := 5;
+  PM.SetUp;
+end;
+
+procedure TfrmMain.LoadMap;
+var
+  fMaze : TextFile;
+  aux : char;
+  x, y : integer;
+begin
+  assignfile(fMaze,'Lab.txt');
+  reset(fMaze);
+  for y := 0 to DIMY do
+  begin
+    for x := 0 to DIMX do
+    begin
+        read(fMaze,aux);
+        mMap[y][x] := aux;
+    end;
+    readln(fMaze);
+  end;
+  closefile(fMaze);
+end;
+
+procedure tfrmMain.EraseDot(Coord : TPoint);
+begin
+  mMap[Coord.Y][Coord.X] := ' ';
+end;
+
+procedure TfrmMain.Timer1Timer(Sender: TObject);
+begin
+  PM.Walk;
+end;
+
+procedure TfrmMain.FormKeyDown(Sender: TObject; var Key: Word;
+  Shift: TShiftState);
+begin
+  if ((Key = VK_UP) or (Key = VK_LEFT) or (Key = VK_DOWN) or (Key = VK_RIGHT)) then
+  begin
+    PM.NewDirection := Key;
+    Timer1.Enabled := True;
+  end;
+end;
+
+end.

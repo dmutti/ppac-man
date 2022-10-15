@@ -1,0 +1,292 @@
+{
+ 1.resolver o problema do escopo local no create
+   RESOLVIDO : properties
+ 2.o q fazer com o Map?
+   RESOLVIDO array dinamico
+ 3.propriedade q devolve um array com as posicoes dos fantasmas
+   RESOLVIDO vide GetGhostPos
+ 4.consertar o drawmap
+ 5.canto com problema
+   RESOLVIDO img deixa de ser Image para ser TBitMap
+ 6.Posicionamento das conexoes
+   Resolvido - reestruturacao completa dos ifs
+ 7.Canto das linhas/colunas
+}
+unit uMapGen;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  Dialogs, StdCtrls, ExtCtrls, Math;
+
+type
+  TMapGen = class
+  private
+    imgMap : TImage;
+    Owner : TComponent;
+    Parent : TWinControl;
+    Size,
+    iVerDim,
+    iHorDim,
+    iDots : Byte;
+    tGhostPos : array[1..4] of TPoint;
+    tPMPos : TPoint;
+    function GetGhostPos(Index : Integer) : TPoint;
+    function Corner(y, x : integer) : Integer;
+    function BorderLine(y, x : integer) : Integer;
+    function BorderColumn(y, x : integer) : Integer;
+    function Line(y, x : integer) : Boolean;
+  public
+    Constructor Create(Owner_ : TComponent; Parent_ : TWinControl);
+    procedure DrawMap;
+    procedure Erase(Coord : TPoint);
+    property VerticalDimension : byte write iVerDim;
+    property HorizontalDimension : byte write iHorDim;
+    property BlockSize : byte write Size;
+    property GhostPos[Index : Integer] : TPoint read GetGhostPos;
+    property PacManPos : TPoint read tPMPos;
+    property Dots : byte read iDots;
+  protected
+end;
+
+implementation
+
+uses
+  uMain;
+////////////////////////////////////////////////////////////////////////////////
+Constructor TMapGen.Create(Owner_ : TComponent; Parent_ : TWinControl);
+begin
+  Owner := Owner_;
+  Parent := Parent_;
+  imgMap := TImage.Create(Owner);
+  imgMap.Parent := Parent;
+  imgMap.Top := 0;
+  imgMap.Left := 0;
+  iDots := 0;
+end;
+////////////////////////////////////////////////////////////////////////////////
+procedure TMapGen.DrawMap;
+var
+  x, y, GhostNumber : integer;
+  SRect: TRect;
+  img : TBitMap;
+begin
+  imgMap.Width := (iHorDim + 1) * Size;
+  imgMap.Height := (iVerDim + 1) * Size;
+  imgMap.Canvas.Brush.Color := clBlack;
+  imgMap.Canvas.FillRect(Rect(0, 0,(iHorDim + 1) * Size, (iVerDim + 1) * Size));
+//------------------------------------------------------------------------------
+  img := TBitMap.Create;
+  GhostNumber := 1;
+//------------------------------------------------------------------------------
+  SRect := Rect(0,0,Size,Size);
+  for y := 0 to iVerDim do
+    for x := 0 to iHorDim do
+      case frmMain.Map[y][x] of
+      '#': begin
+            Case Corner(y,x) of
+              -1 : if Line(y,x) then
+                   begin
+                    case BorderLine(y,x) of
+                      -1 : img.LoadFromFile('.\Gfx\Map\h.bmp');
+                       0 : img.LoadFromFile('.\Gfx\Map\hr.bmp');
+                       1 : img.LoadFromFile('.\Gfx\Map\hl.bmp');
+                    end;
+                   end
+                    else
+                    begin
+                    case BorderColumn(y,x) of
+                      -1 : img.LoadFromFile('.\Gfx\Map\v.bmp');
+                       0 : img.LoadFromFile('.\Gfx\Map\vu.bmp');
+                       1 : img.LoadFromFile('.\Gfx\Map\vd.bmp');
+                    end;
+                   end;
+               1 : img.LoadFromFile('.\Gfx\Map\t.bmp');
+               2 : img.LoadFromFile('.\Gfx\Map\htr.bmp');
+               3 : img.LoadFromFile('.\Gfx\Map\ll.bmp');
+               4 : img.LoadFromFile('.\Gfx\Map\vtd.bmp');
+               5 : img.LoadFromFile('.\Gfx\Map\rs.bmp');
+               6 : img.LoadFromFile('.\Gfx\Map\vtu.bmp');
+               7 : img.LoadFromFile('.\Gfx\Map\htl.bmp');
+               8 : img.LoadFromFile('.\Gfx\Map\rl.bmp');
+               9 : img.LoadFromFile('.\Gfx\Map\ls.bmp');
+              end;
+            imgMap.Canvas.CopyRect(Rect(x*Size,y*Size,(x*Size)+Size,(y*Size)+Size),img.Canvas,SRect);
+           end;
+      '.' : begin
+              inc(iDots);
+              img.LoadFromFile('.\Gfx\Map\point.bmp');
+              imgMap.Canvas.CopyRect(Rect(x*Size,y*Size,(x*Size)+Size,(y*Size)+Size),img.Canvas,SRect);
+            end;
+      '-' : begin
+              img.LoadFromFile('.\Gfx\Map\gh.bmp');
+              imgMap.Canvas.CopyRect(Rect(x*Size,y*Size,(x*Size)+Size,(y*Size)+Size),img.Canvas,SRect);
+            end;
+      '@' : begin
+              img.LoadFromFile('.\Gfx\Map\mp.bmp');
+              imgMap.Canvas.CopyRect(Rect(x*Size,y*Size,(x*Size)+Size,(y*Size)+Size),img.Canvas,SRect);
+            end;
+      'G' : begin
+              tGhostPos[GhostNumber].X := X;
+              tGhostPos[GhostNumber].Y := Y;
+              inc(GhostNumber);
+            end;
+      'P' : begin
+              tPMPos.X := X;
+              tPMPos.Y := Y;
+            end;
+       end;
+//------------------------------------------------------------------------------
+end;
+////////////////////////////////////////////////////////////////////////////////
+function TMapGen.Corner(y, x : integer) : integer;
+begin
+  Corner := -1;
+//------------------------------------------------------------------------------
+// 1 : T
+// 2 : Right T
+// 3 : Lower Left Corner
+    if (x > 0) and (y > 0) and (x < iHorDim) and (y < iVerDim) then
+    begin
+      if (frmMain.Map[y][x-1] = '#') and (frmMain.Map[y-1][x] = '#')
+        and  (frmMain.Map[y][x+1] = '#') and (frmMain.Map[y+1][x] = '#') then
+        begin
+          Corner := 1;
+          exit;
+        end;
+    end;
+    if (y > 0) then
+    begin
+      if (frmMain.Map[y-1][x] = '#') and (frmMain.Map[y][x+1] = '#')
+        and (frmMain.Map[y+1][x] = '#') and (x < iHorDim) and Line(y,x+1) then
+        begin
+          Corner := 2;
+          exit;
+        end
+      else
+        if (frmMain.Map[y-1][x] = '#') and (frmMain.Map[y][x+1] = '#')
+          and Line(y,x+1) then
+          begin
+            Corner := 3;
+            if (x > 1) and (frmMain.Map[y][x-1] = '#') then
+              Corner := -1;
+          end;
+    end;
+//------------------------------------------------------------------------------
+//4 : Down T
+//5 : Higher Right Corner
+    if (x >= 0) then
+    begin
+      if (frmMain.Map[y][x-1] = '#') and (frmMain.Map[y+1][x] = '#')
+        and  (frmMain.Map[y][x+1] = '#') and (y < iVerDim) and not(Line(y+1,x)) then
+        begin
+          Corner := 4;
+          exit;
+        end
+      else
+        if (frmMain.Map[y][x-1] = '#') and (frmMain.Map[y+1][x] = '#') then
+        begin
+          Corner := 5;
+          if (x < iHorDim) and (frmMain.Map[y][x+1] = '#') then
+            Corner := -1;
+        end;
+    end;
+//------------------------------------------------------------------------------
+// 6 : Up T
+// 7 : Left T
+// 8 : Lower Right Corner
+    if (x > 0) and (y > 0) then
+    begin
+      if (frmMain.Map[y][x-1] = '#') and (frmMain.Map[y-1][x] = '#')
+        and  (frmMain.Map[y][x+1] = '#') and (x < iHorDim) and not(Line(y-1,x)) then
+          Corner := 6
+      else
+        if (frmMain.Map[y-1][x] = '#') and (frmMain.Map[y+1][x] = '#')
+          and  (frmMain.Map[y][x-1] = '#') and (y < iVerDim) and Line(y,x-1) then
+            Corner := 7
+      else
+        if (frmMain.Map[y-1][x] = '#') and (frmMain.Map[y][x-1] = '#') then
+        begin
+          Corner := 8;
+          if (frmMain.Map[y][x+1] = '#') or not(Line(y,x)) then
+            Corner := -1;
+        end;
+    end;
+//------------------------------------------------------------------------------
+// 9 : Higher Left Corner
+    if (frmMain.Map[y][x+1] = '#')
+      and (frmMain.Map[y+1][x] = '#') and (frmMain.Map[y][x-1] <> '#') then
+        begin
+        Corner := 9;
+        if not(Line(y,x)) then
+          Corner := -1;
+        end;
+//------------------------------------------------------------------------------
+end;
+////////////////////////////////////////////////////////////////////////////////
+function TMapGen.Line(y,x : integer) : boolean;
+var
+  lin, col : integer;
+begin
+  lin := 0;
+  col := 0;
+  Line := False;
+  if (x < iHorDim) then
+    if (frmMain.Map[y][x+1] = '#') then
+      inc(lin);
+  if (x > 0) then
+    if (frmMain.Map[y][x-1] = '#') then
+      inc(lin);
+  if (y > 0) then
+    if (frmMain.Map[y-1][x] = '#') then
+      inc(col);
+  if (y < iVerDim) then
+    if (frmMain.Map[y+1][x] = '#') then
+      inc(col);
+  if lin >= col then
+    Line := True;
+end;
+////////////////////////////////////////////////////////////////////////////////
+function TMapGen.BorderLine(y, x : integer) : Integer;
+begin
+  if (frmMain.Map[y][x+1] <> '#') then
+    BorderLine := 0
+  else
+    if (frmMain.Map[y][x-1] <> '#') then
+      BorderLine := 1
+  else
+    BorderLine := -1;
+end;
+////////////////////////////////////////////////////////////////////////////////
+function TMapGen.BorderColumn(y, x : integer) : Integer;
+begin
+  if (frmMain.Map[y-1][x] <> '#') then
+    BorderColumn := 0
+  else
+    if (frmMain.Map[y+1][x] <> '#') then
+      BorderColumn := 1
+  else
+    BorderColumn := -1;
+end;
+////////////////////////////////////////////////////////////////////////////////
+function TMapGen.GetGhostPos(Index : Integer) : TPoint;
+var
+  invalid_idx : TPoint;
+begin
+  invalid_idx.X := -1;
+  invalid_idx.Y := -1;
+  if (Index >=1) and (Index <= 4) then
+    GetGhostPos := tGhostPos[Index]
+  else
+    GetGhostPos := invalid_idx;
+end;
+////////////////////////////////////////////////////////////////////////////////
+procedure TMapGen.Erase(Coord : TPoint);
+begin
+  imgMap.Canvas.Brush.Color := clBlack;
+  imgMap.Canvas.Rectangle(Coord.X*Size,Coord.Y*Size,(Coord.X*Size)+Size,(Coord.Y*Size)+Size);
+
+end;
+////////////////////////////////////////////////////////////////////////////////
+end.
